@@ -311,10 +311,17 @@ int fs_read( int inumber, char *data, int length, int offset )
     int j = offset; 
     int bytes_read = 0; 
     int bytes_read_curr = 0;
+	int x, curr_indirect_block;
 
     while(bytes_read < length){
         if(block_pointer >= 5){
             disk_read(curr.indirect, block.data); 
+		if( block.pointers[block_pointer - 5] != 0 ){
+			curr_indirect_block = block.pointers[x];
+		} else{
+			return bytes_read; // no more data to read
+		}
+		disk_read(curr_indirect_block, block.data);
         }else {
             disk_read(curr.direct[block_pointer], block.data); 
         }   
@@ -331,6 +338,7 @@ int fs_read( int inumber, char *data, int length, int offset )
             bytes_read += bytes_read_curr; 
     }
     j = bytes_read;
+	printf("bytes_read_curr: %d\n", bytes_read_curr);
     
     if( bytes_read_curr < DISK_BLOCK_SIZE ){
         printf("Stopped here\n");
@@ -368,19 +376,6 @@ int fs_write( int inumber, const char *data, int length, int offset )
         return 0; 
     } 
 
-    /*
-    if(block_pointer == 5){
-        
-        for(x=0; x<POINTERS_PER_BLOCK; x++){
-            if(block.pointers[x] != 0){
-                block.pointers[x] = NEXT_AVAILABLE; 
-        }
-    } else {
-    }*/
-
-    //NEXT_AVAILABLE++;
-    printf("BLOCK_POINTER: %d\n", block_pointer); 
-
     int bytes_written = 0; 
     int curr_indirect_block; 
     int j=0; 
@@ -399,62 +394,28 @@ int fs_write( int inumber, const char *data, int length, int offset )
             for(x=0; x<POINTERS_PER_BLOCK; x++){
                 if(block.pointers[x] == 0){
                     block.pointers[x] = NEXT_AVAILABLE;
+			disk_write(curr.indirect, block.data);
                     NEXT_AVAILABLE++; 
                     curr_indirect_block = block.pointers[x]; 
                     break; 
                 }
             }
             disk_read(curr_indirect_block, block.data); 
-            printf("curr.indirect: %d \nCurr indirect block: %d\n", curr.indirect, curr_indirect_block); 
         }else {
             curr.direct[block_pointer] = NEXT_AVAILABLE; 
             disk_read(curr.direct[block_pointer], block.data); 
             NEXT_AVAILABLE++; 
         }
-        printf("Block Pointer after disk reads: %d\n", block_pointer); 
-        printf("strlen data: %d\n", strlen(data));  
-        printf("offset: %d, bytes_written: %d\n", offset, bytes_written);  
-        if ( strlen(data) - offset > DISK_BLOCK_SIZE ){
-            printf("strlen(data) - offset > DISK\n"); 
-            if ( bytes_written + DISK_BLOCK_SIZE > length ){
-                printf("1\n"); 
-                printf("Block Pointer in 1: %d\n", block_pointer); 
-                memcpy(block.data, data + bytes_written+ offset, length - bytes_written);
-                bytes_written = length;
-            } else{
-                printf("2\n"); 
-                printf("Block Pointer in 2: %d\n", block_pointer); 
-                memcpy(block.data, data + bytes_written +offset, DISK_BLOCK_SIZE); 
-                bytes_written += DISK_BLOCK_SIZE;
-                printf("Block Pointer in 2: %d\n", block_pointer); 
-            }
-        } else{
-            //if ( bytes_written + strlen(data) - offset > length ){
-            if (strlen(data) - bytes_written - offset > length){
-                printf("else 3\n");
-                printf("Block Pointer in 3: %d\n", block_pointer); 
-                printf("bytes written: %d, length: %d, strlen %d\n", bytes_written, length, strlen(data)); 
-                
-                int k; 
-                for(k=bytes_written+offset; k<length-bytes_written-offset; k++){
-                    block.data[k] = data[k];
-                    printf("in for %d\n ", k); 
-                }
-                //memcpy(block.data, data + j, length - bytes_written);
-                
-                printf("Block Pointer in 3: %d\n", block_pointer); 
-                printf("bytes written: %d, length: %d, strlen %d\n", bytes_written, length, strlen(data)); 
-                bytes_written = length;
-            } else{
-                printf("else 4\n"); 
-                printf("Block Pointer in 4: %d\n", block_pointer); 
-                memcpy(block.data, data + bytes_written +offset, strlen(data) - offset -bytes_written ); 
-                bytes_written = strlen(data) - offset;
-            }
-        }
-        j = bytes_written; 
+	// copy data
+	if ( bytes_written + DISK_BLOCK_SIZE > length ){
+		memcpy(block.data, data + bytes_written + offset, length - bytes_written);
+		bytes_written = length;
+	} else{
+		memcpy(block.data, data + bytes_written +offset, DISK_BLOCK_SIZE); 
+		bytes_written += DISK_BLOCK_SIZE;
+	}
+	j = bytes_written; 
         //update inode size
-        printf("block ptr: %d before disk write\n", block_pointer); 
         if(block_pointer >= 5){
             disk_write(curr_indirect_block, block.data); 
         }else {
@@ -463,15 +424,12 @@ int fs_write( int inumber, const char *data, int length, int offset )
         if(bytes_written == length){
             curr.size += bytes_written;
             inode_save(inumber, &curr);
-            printf("returning in bytes - offser = length\n"); 
             return bytes_written; 
         } 
             
         block_pointer++;
-        //offset+=bytes_written;
     }
-        printf("out of while\n"); 
-        return bytes_written; 
+    return 0;
 }
 
 void inode_load(int inumber, struct fs_inode * fs){
