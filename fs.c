@@ -204,7 +204,7 @@ int fs_create()
     for(i=1; i<INODES_PER_BLOCK; i++){
         if(block.inode[i].isvalid == 0){
             inumber = NEXT_AVAILABLE; 
-			BLOCK_BITMAP[NEXT_AVAILABLE] = free_block;
+		BLOCK_BITMAP[NEXT_AVAILABLE] = free_block;
 			INODE_BITMAP[NEXT_AVAILABLE] = i;
 			NEXT_AVAILABLE++;
             block.inode[i].isvalid = 1; 
@@ -301,40 +301,41 @@ int fs_read( int inumber, char *data, int length, int offset )
     }
 
     int curr_byte = 0; 
-    int count = 0; 
-    int j = 0; 
+    int block_pointer = determine_block(inumber, offset); 
+    disk_read(curr.direct[1], block.data); 
+    int j = offset; 
     int bytes_read = 0; 
 
-    if(offset + length > curr.size){
-        length = curr.size - offset; 
-    }
-
     while(bytes_read < length){
-        if(count >= 5){
+	printf("block pointer: %d\n", block_pointer);
+	printf("j: %d, length: %d\n", j, length);
+        if(block_pointer >= 5){
             disk_read(curr.indirect, block.data); 
         }else {
-            disk_read(curr.direct[count], block.data); 
+            disk_read(curr.direct[block_pointer], block.data); 
         }	
-        memcpy(data, block.data + offset, length + 1);
-        bytes_read += strlen(block.data) - offset; 
+ 	printf("block data at %d: %s\n", block_pointer, block.data);
+printf("----------------------------------------\n");
+        if ( bytes_read + DISK_BLOCK_SIZE > length ){
+		//char str2[length - bytes_read];
+		//strncpy( str2, block.data, length - bytes_read);
+        	memcpy(data + j, block.data, length - bytes_read);
+        	bytes_read = length; 
+	} else{
+        	memcpy(data + j, block.data, strlen(block.data));
+		printf("strlen: %d, block size: %d\n", strlen(block.data), DISK_BLOCK_SIZE);
+        	bytes_read += strlen(block.data); 
+		printf("bytes read: %d\n", bytes_read);
+
+	}
+	j = bytes_read;
+	
         if(bytes_read >= length){
-			return bytes_read; 
+		return bytes_read; 
         }
-	/*
-        for(i=0; i<DISK_BLOCK_SIZE; i++){
-            curr_byte +=1; 
-            if(curr_byte >= offset){
-                data[j] = block.data[i]; 
-                j++; 
-                bytes_read += 1; 
-                if(bytes_read == length){
-                    return bytes_read; 
-                }
-            }
-        }
-	*/
-        count++; 
-        }
+
+	block_pointer++; 
+    }
     
     return bytes_read; 
 }
@@ -401,13 +402,13 @@ int fs_write( int inumber, const char *data, int length, int offset )
 	}
 	j += bytes_written; 
 	//update inode size
-	curr.size += bytes_written;
 	if(block_pointer == 5){
 		disk_write(curr.indirect, block.data); 
 	}else {
 		disk_write(curr.direct[block_pointer], block.data); 
 	}
 	if(bytes_written == length){
+		curr.size = bytes_written;
 		inode_save(inumber, &curr);
 		return bytes_written; 
 	} 
