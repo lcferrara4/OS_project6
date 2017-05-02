@@ -362,7 +362,8 @@ int fs_write( int inumber, const char *data, int length, int offset )
     }
 
     NEXT_AVAILABLE++; 
-   
+    printf("%d\n", NEXT_AVAILABLE); 
+
     int bytes_written = 0; 
     int i; 
     int j=offset; 
@@ -424,6 +425,7 @@ int fs_write( int inumber, const char *data, int length, int offset )
         }
 
         NEXT_AVAILABLE++;
+        printf("next avail in loop: %d\n", NEXT_AVAILABLE); 
     }
     //update inode size
     curr.size += bytes_written; 
