@@ -304,6 +304,7 @@ int fs_getsize( int inumber )
 
 int fs_read( int inumber, char *data, int length, int offset )
 {
+	printf("offset: %d\n", offset);
     
     if(!MOUNTED){
         fprintf(stderr, "File system not mounted\n"); 
@@ -327,50 +328,75 @@ int fs_read( int inumber, char *data, int length, int offset )
         fprintf(stderr, "Inode size 0, no data to read\n"); 
         return 0; 
     }
+	printf("Before block pointer\n");
 
     int block_pointer = determine_block(inumber, offset); 
-    disk_read(curr.direct[1], block.data); 
-    int j = offset; 
     int bytes_read = 0; 
     int bytes_read_curr = 0;
 	int x, curr_indirect_block;
 
     while(bytes_read < length){
+	printf("block pointer = %d\n", block_pointer);
         if(block_pointer >= 5){
+		printf("in indirect\n");
+		printf("curr indirect: %d\n", curr.indirect);
             disk_read(curr.indirect, block.data); 
+		printf("block pointer 5: %d\n", block.pointers[block_pointer - 5]);
             if( block.pointers[block_pointer - 5] != 0 ){
-                curr_indirect_block = block.pointers[x];
+                curr_indirect_block = block.pointers[block_pointer - 5];
+		printf("curr indirect block: %d\n", curr_indirect_block);
             } else{
+		printf("bytes_read before return: %d\n", bytes_read);
                 return bytes_read; // no more data to read
             }
+		printf("curr indirect block: %d\n", curr_indirect_block);
 		disk_read(curr_indirect_block, block.data);
         } else {
+		printf("in direct\n");
             disk_read(curr.direct[block_pointer], block.data); 
         }   
         if ( bytes_read + DISK_BLOCK_SIZE > length ){
-            memcpy(data + j, block.data, length - bytes_read);
+		printf("1\n");
+            memcpy(data + offset + bytes_read, block.data, length - bytes_read);
             bytes_read_curr = length - bytes_read;
             bytes_read = length; 
-        if( curr.size < bytes_read )
-            return curr.size;
-        return bytes_read;
-    } else{
-            memcpy(data + j, block.data, DISK_BLOCK_SIZE);
-            bytes_read_curr = strlen(block.data);
+    	} else if( curr.size - (offset + bytes_read) < DISK_BLOCK_SIZE){
+
+		printf("3\n");
+		printf("offset: %d, bytes_read: %d\n", offset, bytes_read);
+		for( x = 0; x < curr.size - offset - bytes_read; x++ ){
+			data[x+offset + bytes_read] = block.data[x];
+			printf("block data[x]: %c\n", block.data[x]);
+		}
+            bytes_read_curr = curr.size - offset - bytes_read;
+            bytes_read = length; 
+		
+
+	} else{
+		printf("2\n");
+		printf("offset: %d, bytes_read: %d\n", offset, bytes_read);
+            	memcpy(data + offset + bytes_read, block.data, DISK_BLOCK_SIZE);
+		/*
+		for( x = 0; x < DISK_BLOCK_SIZE; x++ ){
+			data[x+offset+bytes_read] = block.data[x];
+		}	
+		*/
+            bytes_read_curr = DISK_BLOCK_SIZE;
+            //bytes_read_curr = strlen(block.data);
             bytes_read += bytes_read_curr; 
-    }
-    j = bytes_read;
+    	}
 	printf("bytes_read_curr: %d\n", bytes_read_curr);
+	printf("bytes_read: %d\n", bytes_read);
     
-    if( bytes_read_curr < DISK_BLOCK_SIZE ){
-        printf("Stopped here\n");
-        if( curr.size < bytes_read )
-            return curr.size;
-        return bytes_read;
+    	if(bytes_read >= length ){
+        	printf("Stopped here\n");
+        	if( curr.size < bytes_read )
+            		return curr.size - offset;
+        	return bytes_read;
+    	}
+    
+    	block_pointer++; 
     }
-    
-    block_pointer++; 
-}
     
     return bytes_read; 
 }
@@ -429,10 +455,16 @@ int fs_write( int inumber, const char *data, int length, int offset )
             NEXT_AVAILABLE++; 
         }
 	// copy data
+	int k;
 	if ( bytes_written + DISK_BLOCK_SIZE > length ){
-		memcpy(block.data, data + bytes_written + offset, length - bytes_written);
+		printf("1\n");
+		//memcpy(block.data, data + bytes_written + offset, length - bytes_written);
+		for( k = bytes_written; k < length - bytes_written; k ++ ){
+			block.data[k+offset] = data[k+offset];
+		}
 		bytes_written = length;
 	} else{
+		printf("2\n");
 		memcpy(block.data, data + bytes_written +offset, DISK_BLOCK_SIZE); 
 		bytes_written += DISK_BLOCK_SIZE;
 	}
