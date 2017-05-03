@@ -1,4 +1,3 @@
-
 #include "fs.h"
 #include "disk.h"
 
@@ -22,10 +21,7 @@ int * INUMBERS;
 int NBLOCKS; 
 int CURR_BLOCK; 
 int * NEXT_AVAILABLE; 
-<<<<<<< HEAD
 int TOTAL_INUMBERS;
-=======
->>>>>>> 439e4f4de062d2c485ad32f6ec320af6f55c767a
 
 
 struct fs_superblock {
@@ -114,12 +110,13 @@ void fs_debug()
         for(j=0; j<INODES_PER_BLOCK; j++){
             if(block.inode[j].isvalid == 1){
                 if(!MOUNTED){
-			int curr_inode = 2;
+					int curr_inode = 2;
                     printf("inode: %d\n", start_inode);   
-			start_inode++;
+					start_inode++;
                 } else{
                     printf("inode: %d\n", INUMBERS[i * INODES_PER_BLOCK + j]); 
-                } printf("    size: %d bytes\n", block.inode[j].size); 
+                } 
+				printf("    size: %d bytes\n", block.inode[j].size); 
                 for(k=0; k<5; k++){
                     if (block.inode[j].direct[k] != 0){
                         if (first){
@@ -134,7 +131,7 @@ void fs_debug()
                 if (block.inode[j].indirect != 0){
                     printf("    indirect block: %d\n", block.inode[j].indirect);
                     
-                    union fs_block indirect_info; 
+                   union fs_block indirect_info; 
                     printf("    indirect data blocks: "); 
                     
                     disk_read(block.inode[j].indirect, indirect_info.data); 
@@ -167,7 +164,7 @@ int fs_mount()
 
     BITMAP = (int *)malloc(sizeof(int)*NBLOCKS); 
     BLOCK_BITMAP = (int *)malloc(sizeof(int)*NBLOCKS); 
-    NEXT_AVAILABLE = (int *)malloc(sizeof(int)*NBLOCKS); 
+
     INODE_BITMAP = (int *)malloc(sizeof(int)*NBLOCKS*INODES_PER_BLOCK); 
     INUMBERS = (int *)malloc(sizeof(int)*NBLOCKS*INODES_PER_BLOCK); 
 
@@ -182,20 +179,20 @@ int fs_mount()
 	NEXT_AVAILABLE[1] = 1;
 	int inumber;
 
+	int start_inode = 2;
     for(i=1; i<=inode_blocks; i++){
         inuse = 0; 
         disk_read(i, block.data); 
         for(j=0; j<INODES_PER_BLOCK; j++){
             if (block.inode[j].isvalid == 1){
+		printf("is valid, j = %d\n", j);
                 inuse += 1;
-<<<<<<< HEAD
                 inumber = get_NEXT_AVAILABLE();
 	            BLOCK_BITMAP[inumber] = i;
     	        INODE_BITMAP[inumber] = j;
-        	    INUMBERS[i] = inumber;
-=======
-                INUMBERS[j] = get_NEXT_AVAILABLE(); //ADDED 
->>>>>>> 439e4f4de062d2c485ad32f6ec320af6f55c767a
+        	//INUMBERS[i] = inumber;
+		INUMBERS[(i-1) * INODES_PER_BLOCK + j] = start_inode;
+		start_inode++;
             }
         }
         if (inuse == INODES_PER_BLOCK){
@@ -204,10 +201,9 @@ int fs_mount()
             BITMAP[i] = 0; 
         }
     }
-    
-<<<<<<< HEAD
+   
+	start_inode = 2; 
     int k, p; 
-	int start_inode = 2;
     for(i=1; i<= inode_blocks; i++){
         disk_read(i, block.data);  
         for(j=0; j<INODES_PER_BLOCK; j++){
@@ -224,6 +220,7 @@ int fs_mount()
 		else{
 		*/
 		if( block.inode[j].isvalid == 1){
+			printf("assigning inumber\n");
 			// already in use
 			NEXT_AVAILABLE[start_inode] = 1;
 			start_inode++;
@@ -244,34 +241,6 @@ int fs_mount()
 
 			}
 		}
-=======
-    int k; 
-    for(i=0; i<NBLOCKS-1; i++){
-        disk_read(i+1, block.data);  
-        if (block.inode[j].isvalid == 0){
-            block.inode[j].size = 0; 
-            block.inode[j].indirect = 0; 
-            for(k=0; k<5; k++){
-                block.inode[j].direct[k] = 0; 
-            }
-        disk_write(i+1, block.data);
-        }
-        else{
-            for(k=0; k<5; k++){
-                if (block.inode[j].direct[k] !=0){
-                    NEXT_AVAILABLE[block.inode[j].direct[k]] = 1; 
-                }
-            }
-            if(block.inode[j].indirect != 0){
-                NEXT_AVAILABLE[block.inode[j].indirect] = 1; 
-                disk_read(block.inode[j].indirect, block.data); 
-                for(k=0; k<POINTERS_PER_BLOCK; k++){
-                    if(block.inode[j].pointers[x] != 0){
-                        NEXT_AVAILABLE[block.inode[j].pointers[x]]=1; 
-                    }
-                }
-            }
->>>>>>> 439e4f4de062d2c485ad32f6ec320af6f55c767a
         }
     }
 
@@ -305,10 +274,7 @@ int fs_create()
     for(i=1; i<INODES_PER_BLOCK; i++){
         if(block.inode[i].isvalid == 0){
             inumber = get_NEXT_AVAILABLE(); 
-<<<<<<< HEAD
 			printf("inumber: %d\n", inumber);
-=======
->>>>>>> 439e4f4de062d2c485ad32f6ec320af6f55c767a
             BLOCK_BITMAP[inumber] = free_block;
             INODE_BITMAP[inumber] = i;
             INUMBERS[i] = inumber;
@@ -360,16 +326,10 @@ int fs_delete( int inumber )
     }
     inode_save(inumber, &curr); 
     
-    remove_inumber(inumber); 
     BITMAP[CURR_BLOCK]=0; 
-<<<<<<< HEAD
     INODE_BITMAP[inumber] = -1;
     BLOCK_BITMAP[inumber] = -1;
 	release_inumber(inumber);
-=======
-    //INODE_BITMAP[inumber] = -1;
-    //BLOCK_BITMAP[inumber] = -1;
->>>>>>> 439e4f4de062d2c485ad32f6ec320af6f55c767a
 
     return 1;
 }
@@ -495,14 +455,8 @@ int fs_write( int inumber, const char *data, int length, int offset )
     int disk_offset = offset % DISK_BLOCK_SIZE;
     int bytes_written = 0; 
     int curr_indirect_block; 
-<<<<<<< HEAD
     while(length > 0){ // && block_pointer < something
         if(block_pointer == 5){ // creates space for indirect
-=======
-    int j=0; 
-    while(bytes_written < length){
-        if(block_pointer == 5){
->>>>>>> 439e4f4de062d2c485ad32f6ec320af6f55c767a
             curr.indirect = get_NEXT_AVAILABLE();
             disk_read(curr.indirect, block.data); 
             for(x=0; x<POINTERS_PER_BLOCK; x++){
@@ -521,7 +475,6 @@ int fs_write( int inumber, const char *data, int length, int offset )
                 }
             }
             disk_read(curr_indirect_block, block.data); 
-<<<<<<< HEAD
         }else { // direct
             curr.direct[block_pointer] = get_NEXT_AVAILABLE(); 
             disk_read(curr.direct[block_pointer], block.data); 
@@ -537,7 +490,6 @@ int fs_write( int inumber, const char *data, int length, int offset )
 				for( k = 0; k < length - bytes_written -offset; k ++ ){
 					block.data[k] = data[k+offset+bytes_written];
 				}
-
 				printf("data in 1: %c\n", data[bytes_written + offset+k]); 
 				//printf("block data from 1: %s\n", block.data); 
 				bytes_written = length;
@@ -548,37 +500,6 @@ int fs_write( int inumber, const char *data, int length, int offset )
 			length -= DISK_BLOCK_SIZE;
 		}
 		// write data to disk
-=======
-        }else {
-            curr.direct[block_pointer] = get_NEXT_AVAILABLE(); 
-            disk_read(curr.direct[block_pointer], block.data); 
-        }
-	// copy data
-	int k;
-	if ( bytes_written + DISK_BLOCK_SIZE > length ){
-		printf("1\n");
-        printf("data in 1: %c\n", data[bytes_written + offset+k]); 
-		//memcpy(block.data, data + bytes_written + offset, length - bytes_written);
-		for( k = 0; k < length - bytes_written -offset; k ++ ){
-			block.data[k] = data[k+offset+bytes_written];
-         //   bytes_written+=1; 
-		}
-        //printf("bytes_written: %d\n", bytes_written); 
-        printf("data in 1: %c\n", data[bytes_written + offset+k]); 
-        printf("block data from 1: %s\n", block.data); 
-		bytes_written = length;
-	} else{
-		printf("2\n");
-        printf("data in 2: %c\n", data[bytes_written + offset]); 
-		memcpy(block.data, data +offset+bytes_written, DISK_BLOCK_SIZE);
-
-
-        printf("data in 2: %c\n", data[bytes_written + offset]); 
-        printf("block data from 2: %s\n", block.data); 
-		bytes_written += DISK_BLOCK_SIZE;
-	}
-        //update inode size
->>>>>>> 439e4f4de062d2c485ad32f6ec320af6f55c767a
         if(block_pointer >= 5){
             disk_write(curr_indirect_block, block.data); 
         }else {
@@ -637,7 +558,6 @@ int determine_block(int inumber, int offset){
     return block_num; 
 }
 
-<<<<<<< HEAD
 int get_NEXT_AVAILABLE(){
     union fs_block block; 	
 	disk_read(0, block.data); 
@@ -655,18 +575,4 @@ int get_NEXT_AVAILABLE(){
 
 void release_inumber(int inumber){
 	NEXT_AVAILABLE[inumber] = 0;
-=======
-int get_NEXT_AVAILABLE(void){
-    int i; 
-    for(int i=0; i<NBLOCKS; i++){
-        
-
-    }
-
-}
-
-void remove_inumber(int inumber){
-    NEXT_AVAILABLE[inumber] = 0; 
-
->>>>>>> 439e4f4de062d2c485ad32f6ec320af6f55c767a
 }
