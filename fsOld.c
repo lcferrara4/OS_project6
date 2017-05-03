@@ -21,7 +21,7 @@ int * INODE_BITMAP;
 int * INUMBERS;
 int NBLOCKS; 
 int CURR_BLOCK; 
-int * NEXT_AVAILABLE; 
+int NEXT_AVAILABLE =1; 
 
 
 struct fs_superblock {
@@ -157,12 +157,12 @@ int fs_mount()
 
     BITMAP = (int *)malloc(sizeof(int)*NBLOCKS); 
     BLOCK_BITMAP = (int *)malloc(sizeof(int)*NBLOCKS); 
-    NEXT_AVAILABLE = (int *)malloc(sizeof(int)*NBLOCKS); 
+    NEXT_AVAILABLE = (int *)malloc(sizeof(int) * inode_blocks*INDOES_PER_BLOCK); 
     INODE_BITMAP = (int *)malloc(sizeof(int)*NBLOCKS*INODES_PER_BLOCK); 
     INUMBERS = (int *)malloc(sizeof(int)*NBLOCKS*INODES_PER_BLOCK); 
     BITMAP[0] = 1; //superblock 
 
-    for(i=1; i<inode_blocks; i++){
+    for(i=1; i=<inode_blocks; i++){
         inuse = 0; 
         disk_read(i, block.data); 
         for(j=0; j<INODES_PER_BLOCK; j++){
@@ -221,9 +221,13 @@ int fs_create()
 
     NBLOCKS = disk_size(); 
     
-    for(i=1; i<NBLOCKS; i++){
-        if(BITMAP[i] == 0){
-            free_block = i; 
+    disk_read(0, block.data);
+    int inode_blocks = block.super.ninodeblocks; 
+    int k; 
+    BITMAP[0] = 1; 
+    for(k=1; k<=inode_blocks; k++){
+        if (BITMAP[k] == 0){
+            free_block = k; 
             break; 
         }
     }
@@ -231,33 +235,32 @@ int fs_create()
         fprintf(stderr, "No free blocks\n"); 
         return 0; 
     }
-    
-    disk_read(free_block, block.data);
 
-    for(i=1; i<INODES_PER_BLOCK; i++){
-        if(block.inode[i].isvalid == 0){
-            inumber = get_NEXT_AVAILABLE(); 
-            BLOCK_BITMAP[inumber] = free_block;
-            INODE_BITMAP[inumber] = i;
-            INUMBERS[i] = inumber;
+    for(k=0; k<inode_blocks; k++){
+        disk_read(k+1, block.data); 
+            for(i=1; i<INODES_PER_BLOCK; i++){
+                if(block.inode[i].isvalid == 0){
+                    inumber = get_NEXT_AVAILABLE();  
+                    BLOCK_BITMAP[inumber] = k+1;
+                    INODE_BITMAP[inumber] = i;
+                    INUMBERS[i] = inumber;
 
-            block.inode[i].isvalid = 1;
-            block.inode[i].size = 0; 
-            for(x=0; x<5; x++){
-                block.inode[i].direct[x]=0; 
+                    block.inode[i].isvalid = 1;
+                    block.inode[i].size = 0; 
+                for(x=0; x<5; x++){
+                    block.inode[i].direct[x]=0; 
+                }
+                block.inode[i].indirect = 0;  
+                disk_write(k+1, block.data); 
+                break; 
+                }
             }
-            block.inode[i].indirect = 0;  
-            disk_write(free_block, block.data); 
-
-            break; 
-        }
+        BITMAP[k+1] = 1; 
     }
+    
     if (inumber == -1){
         fprintf(stderr, "no valid inodes\n"); 
         return 0; 
-    }
-    if(inumber == INODES_PER_BLOCK -1){
-        BITMAP[free_block] = 1; 
     }
     return inumber; 
 }
@@ -288,10 +291,9 @@ int fs_delete( int inumber )
     }
     inode_save(inumber, &curr); 
     
-    remove_inumber(inumber); 
     BITMAP[CURR_BLOCK]=0; 
-    //INODE_BITMAP[inumber] = -1;
-    //BLOCK_BITMAP[inumber] = -1;
+    INODE_BITMAP[inumber] = -1;
+    BLOCK_BITMAP[inumber] = -1;
 
     return 1;
 }
@@ -442,27 +444,30 @@ int fs_write( int inumber, const char *data, int length, int offset )
     int j=0; 
     while(bytes_written < length){
         if(block_pointer == 5){
-            curr.indirect = get_NEXT_AVAILABLE();
+            curr.indirect = NEXT_AVAILABLE;
             disk_read(curr.indirect, block.data); 
             for(x=0; x<POINTERS_PER_BLOCK; x++){
                 block.pointers[x] = 0; 
             }
             disk_write(curr.indirect, block.data); 
+            NEXT_AVAILABLE++; 
         }
         if(block_pointer >= 5){
             disk_read(curr.indirect, block.data); 
             for(x=0; x<POINTERS_PER_BLOCK; x++){
                 if(block.pointers[x] == 0){
-                    block.pointers[x] = get_NEXT_AVAILABLE();
+                    block.pointers[x] = NEXT_AVAILABLE;
                     disk_write(curr.indirect, block.data);
+                    NEXT_AVAILABLE++; 
                     curr_indirect_block = block.pointers[x]; 
                     break; 
                 }
             }
             disk_read(curr_indirect_block, block.data); 
         }else {
-            curr.direct[block_pointer] = get_NEXT_AVAILABLE(); 
+            curr.direct[block_pointer] = NEXT_AVAILABLE; 
             disk_read(curr.direct[block_pointer], block.data); 
+            NEXT_AVAILABLE++; 
         }
 	// copy data
 	int k;
@@ -545,18 +550,4 @@ int determine_block(int inumber, int offset){
     //}
 
     return block_num; 
-}
-
-int get_NEXT_AVAILABLE(void){
-    int i; 
-    for(int i=0; i<NBLOCKS; i++){
-        
-
-    }
-
-}
-
-void remove_inumber(int inumber){
-    NEXT_AVAILABLE[inumber] = 0; 
-
 }
