@@ -94,11 +94,6 @@ void fs_debug()
     int first = 1; 
     disk_read(0,block.data);
 
-    if(block.super.magic != FS_MAGIC){
-        fprintf(stderr, "Magic number not valid\n"); 
-        exit(1); 
-    } 
-
     printf("superblock:\n");
   
     printf("    %d blocks\n",block.super.nblocks);
@@ -111,8 +106,11 @@ void fs_debug()
         disk_read(i+1, block.data); 
         for(j=0; j<INODES_PER_BLOCK; j++){
             if(block.inode[j].isvalid == 1){
-                printf("inode: %d\n", INUMBERS[j]); 
-                printf("    size: %d bytes\n", block.inode[j].size); 
+                if(!MOUNTED){
+                    printf("inode: %d\n", j);   
+                } else{
+                    printf("inode: %d\n", INUMBERS[j]); 
+                } printf("    size: %d bytes\n", block.inode[j].size); 
                 for(k=0; k<5; k++){
                     if (block.inode[j].direct[k] != 0){
                         if (first){
@@ -169,7 +167,8 @@ int fs_mount()
         disk_read(i, block.data); 
         for(j=0; j<INODES_PER_BLOCK; j++){
             if (block.inode[j].isvalid == 1){
-               inuse += 1;
+                inuse += 1;
+                INUMBERS[j] = NEXT_AVAILABLE; NEXT_AVAILABLE++; //ADDED 
             }
         }
         if (inuse == INODES_PER_BLOCK){
@@ -178,6 +177,24 @@ int fs_mount()
             BITMAP[i] = 0; 
         }
     }
+    
+    int k; 
+    for(i=0; i<NBLOCKS-1; i++){
+        disk_read(i+1, block.data);  
+        if (block.inode[j].isvalid == 0){
+            block.inode[j].size = 0; 
+            block.inode[j].indirect = 0; 
+            for(k=0; k<5; k++){
+                block.inode[j].direct[k] = 0; 
+            }
+        disk_write(i+1, block.data);
+        }
+        else{
+            NEXT_AVAILABLE++; 
+        }
+    }
+
+
     
     MOUNTED = 1; 
     return 1;
@@ -190,6 +207,8 @@ int fs_create()
     int free_block = -1; 
     int inumber = -1; 
 
+    NBLOCKS = disk_size(); 
+    
     for(i=1; i<NBLOCKS; i++){
         if(BITMAP[i] == 0){
             free_block = i; 
@@ -206,10 +225,10 @@ int fs_create()
     for(i=1; i<INODES_PER_BLOCK; i++){
         if(block.inode[i].isvalid == 0){
             inumber = NEXT_AVAILABLE; 
-        BLOCK_BITMAP[NEXT_AVAILABLE] = free_block;
-        INODE_BITMAP[NEXT_AVAILABLE] = i;
-        INUMBERS[i] = NEXT_AVAILABLE;
-        NEXT_AVAILABLE++;
+            BLOCK_BITMAP[NEXT_AVAILABLE] = free_block;
+            INODE_BITMAP[NEXT_AVAILABLE] = i;
+            INUMBERS[i] = NEXT_AVAILABLE;
+            NEXT_AVAILABLE++;
 
             block.inode[i].isvalid = 1;
             
@@ -316,25 +335,25 @@ int fs_read( int inumber, char *data, int length, int offset )
     while(bytes_read < length){
         if(block_pointer >= 5){
             disk_read(curr.indirect, block.data); 
-		if( block.pointers[block_pointer - 5] != 0 ){
-			curr_indirect_block = block.pointers[x];
-		} else{
-			return bytes_read; // no more data to read
-		}
+            if( block.pointers[block_pointer - 5] != 0 ){
+                curr_indirect_block = block.pointers[x];
+            } else{
+                return bytes_read; // no more data to read
+            }
 		disk_read(curr_indirect_block, block.data);
-        }else {
+        } else {
             disk_read(curr.direct[block_pointer], block.data); 
         }   
         if ( bytes_read + DISK_BLOCK_SIZE > length ){
             memcpy(data + j, block.data, length - bytes_read);
-        bytes_read_curr = length - bytes_read;
+            bytes_read_curr = length - bytes_read;
             bytes_read = length; 
         if( curr.size < bytes_read )
             return curr.size;
         return bytes_read;
     } else{
             memcpy(data + j, block.data, DISK_BLOCK_SIZE);
-        bytes_read_curr = strlen(block.data);
+            bytes_read_curr = strlen(block.data);
             bytes_read += bytes_read_curr; 
     }
     j = bytes_read;
@@ -348,7 +367,7 @@ int fs_read( int inumber, char *data, int length, int offset )
     }
     
     block_pointer++; 
-    }
+}
     
     return bytes_read; 
 }
