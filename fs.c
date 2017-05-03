@@ -193,7 +193,7 @@ int fs_mount()
             NEXT_AVAILABLE++; 
         }
     }
-
+    printf("NEXT_AVAILABLE %d\n", NEXT_AVAILABLE); 
 
     
     MOUNTED = 1; 
@@ -231,7 +231,10 @@ int fs_create()
             NEXT_AVAILABLE++;
 
             block.inode[i].isvalid = 1;
-            
+            block.inode[i].size = 0; 
+            for(x=0; x<5; x++){
+                block.inode[i].direct[x]=0; 
+            }
             block.inode[i].indirect = 0;  
             disk_write(free_block, block.data); 
 
