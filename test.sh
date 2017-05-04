@@ -1,6 +1,9 @@
 #!/bin/bash
 HOSTDIR="/afs/nd.edu/user21/jwesthof/Public"
-uut="./simplefs"
+uut="./simplefs image.20 20"
+output="out.txt"
+txt1="medium.txt"
+txt2="less_big2.txt"
 cat <<EOF
 RUNNING LAME TEST SCRIPT VERSION 7
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,12 +14,11 @@ suggestions, or whatever, bug @jeffrey on slack, or John Westhoff on facebook.
 EOF
 tmp=`mktemp -d`
 chmod 777 $tmp
-cp $HOSTDIR/test/image.5 $tmp/img.5
 
 ### TEST ONE ###
-$uut $tmp/img.5 5 >/dev/null <<EOF
+$uut >/dev/null <<EOF
 mount
-copyout 1 $tmp/1.txt
+copyout 2 $out.txt
 EOF
 ## Verify test succeeded ##
 if diff $tmp/1.txt $HOSTDIR/test/1.txt ; then
